@@ -278,11 +278,12 @@ public class MultiBreakSV {
 				"\t\t\tis a single column of all ESP alignments to be set.\n"+
 				"\t\t\tDefault is none.\n\n"+
 				"  --savespace\t\tDoes not write mcmc.txt and .samplingprobs files;\n"+
-				"\t\t\tthese tend to be large. Default is false.\n"+
+				"\t\t\tHighly recommended for large problems and/or a large\n"+
+				"\t\t\tnumber of iterations. Default is false.\n\n"+
 				"  --enumerate\t\tEnumerates all possible combinations and explicitly\n" +
-				"\t\t\tcomputes each state.  Recommended only for problems with < 100\n" +
-				"\t\t\tstates.  Default is false.\n"+
-				"  --readclustersfirst\t\tReads clusters file first rather than\n"+
+				"\t\t\tcomputes each state.  Recommended only for problems\n"+
+				"\t\t\twith < 100 states.  Default is false.\n\n"+
+				"  --readclustersfirst\tReads clusters file first rather than\n"+
 				"\t\t\tassignmentsfile. Useful if jobs are split across clusters.\n"+
 				"\t\t\tDefault is false.");
 		System.out.println("-------------------------------------------------------------------------------\n");
@@ -459,10 +460,10 @@ public class MultiBreakSV {
 				int tmpnum = 0;
 				for (int j=0;j<cur.get(i).alignments.size();j++) {						
 					if (esp2cid.containsKey(cur.get(i).alignments.get(j))) { 
-						System.out.println(cur.get(i).alignments.get(j) + " FOUND");
+						//System.out.println(cur.get(i).alignments.get(j) + " FOUND");
 						tmpnum++;
 					} else { 
-						System.out.println(cur.get(i).alignments.get(j) + " MISSING");
+						//System.out.println("Warning: " + cur.get(i).alignments.get(j) + " MISSING");
 					}
 		
 				}
@@ -1052,7 +1053,7 @@ public class MultiBreakSV {
 
 			System.out.println(espstoset.size()+" esps recorded.");
 			System.out.println(tot+ " total fragments");
-			System.out.println(numset +" fragments set in A, and " + numerr + " fragments set to eror.");
+			System.out.println(numset +" fragments set in A, and " + numerr + " fragments set to error.");
 			System.out.println(numbad + " fragments had an ESP in the matchfile but no assignment was set.");
 		}
 		System.out.println("  Setting Breakpoint According to Diagrams...");

@@ -77,7 +77,7 @@ the following:
 
 MultiBreakSV.java: runs the MultiBreakSV method.
 
-Usage:  java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
+Usage: java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
 
   REQUIRED ARGUMENTS:
   --clusterfile STR	GASV clusters file (run with maximal clusters)
@@ -94,7 +94,7 @@ Usage:  java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
 			  5.ExperimentLabel: name of experiment/platform/run.
 			Note that the NumErrors and BasesInAlignment account
 			for any concordantly-aligned pairs in the mapping
-			(for strobes in particular). BasesInAlignment is the
+			(for fragments in particular). BasesInAlignment is the
 			sum of the target lengths of the subalignments.
 
   --experimentfile STR	File of experiments/platforms/runs (with header).
@@ -119,6 +119,18 @@ Usage:  java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
   --matchfile STR	File to initialize MCMC method to. The matchfile
 			is a single column of all ESP alignments to be set.
 			Default is none.
+
+  --savespace		Does not write mcmc.txt and .samplingprobs files;
+			Highly recommended for large problems and/or a large
+			number of iterations. Default is false.
+
+  --enumerate		Enumerates all possible combinations and explicitly
+			computes each state.  Recommended only for problems
+			with < 100states.  Default is false.
+
+  --readclustersfirst	Reads clusters file first rather than
+			assignmentsfile. Useful if jobs are split across clusters.
+			Default is false.
 
 #####################
 ## III. Input Files
@@ -219,8 +231,8 @@ SamplingProbs File:
 
 The example is from one of the 1000 Genomes simulated experiments.  To run MultiBreak-SV with a random initial mapping:
 
-java -jar MultiBreakSV.jar --clusterfile example-infiles/gasv.clusters --assignmentfile example-infiles/assignments.txt --experimentfile example-infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example-outfiles/multibreaksv-randinit 
+java -jar bin/MultiBreakSV.jar --clusterfile example/infiles/gasv.clusters --assignmentfile example/infiles/assignments.txt --experimentfile example/infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example/outfiles/multibreaksv-randinit 
 
 To run MultiBreak-SV with a pre-specified initial mapping:
 
-java -jar MultiBreakSV.jar --clusterfile example-infiles/gasv.clusters --assignmentfile example-infiles/assignments.txt --experimentfile example-infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example-outfiles/multibreaksv-setinit --matchfile example-infiles/initialset.txt
+java -jar bin/MultiBreakSV.jar --clusterfile example/infiles/gasv.clusters --assignmentfile example/infiles/assignments.txt --experimentfile example/infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example/outfiles/multibreaksv-setinit --matchfile example/infiles/initialset.txt
