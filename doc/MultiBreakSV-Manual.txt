@@ -56,11 +56,13 @@ Installation Instructions:
 
 	git clone https://github.com/raphael-group/multibreak-sv.git
 
-(ii) Install the code. Run the following comman
+(ii) Install the code. Run the following command
 
      	./install 
 
-     This will compile the Java and will create the following executables.
+     This will compile the Java and will create the following executable:
+
+        bin/MultiBreakSV.jar
 
 ## II. Usage Instructions #####################################################
 
@@ -70,12 +72,12 @@ and runs a Markov Chain Monte Carlo (MCMC) algorithm that computes the
 probability of selecting each multi-breakpoint-mapping given the GASV
 clusters.
 
-To print the usage, type 'java -jar MultiBreakSV.jar'. You will see
+To print the usage, type 'java -jar bin/MultiBreakSV.jar'. You will see
 the following:
 
 MultiBreakSV.java: runs the MultiBreakSV method.
 
-Usage: java mcmc.MultiBreakSV [ARGUMENTS] [OPTIONAL-ARGUMENTS]
+Usage:  java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
 
   REQUIRED ARGUMENTS:
   --clusterfile STR	GASV clusters file (run with maximal clusters)
