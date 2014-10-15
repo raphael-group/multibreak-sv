@@ -1,0 +1,224 @@
+Copyright 2014 Brown University, Providence, RI.
+
+                         All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose other than its incorporation into a
+commercial product is hereby granted without fee, provided that the
+above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation, and that the name of Brown University not be used in
+advertising or publicity pertaining to distribution of the software
+without specific, written prior permission.
+
+BROWN UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR ANY
+PARTICULAR PURPOSE.  IN NO EVENT SHALL BROWN UNIVERSITY BE LIABLE FOR
+ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+http://cs.brown.edu/people/braphael/software.html
+
+Manual for MultiBreak-SV
+
+Software that identifies structural variants from next-generation paired end data, third-generation long read data, or data from a combination of sequencing platforms.
+
+If you use MultiBreak-SV in your research, please cite:
+
+A. Ritz, A. Bashir, S. Sindi, D. Hsu, I. Hajirasouliha, and B. J. Raphael. Characterization of Structural Variants with Single Molecule and Hybrid Sequencing Approaches, under review.
+
+contact: Anna Ritz (annaritz@vt.edu)
+contact: Ben Raphael (braphael@cs.brown.edu)
+
+Beta Version 0.01
+Version Date: October 2014
+
+Table of Contents
+#############################################################################
+## I. Installation
+## II. Usage Instructions
+## III. Input Files
+## IV. Output Files
+## V. Example Runs
+#############################################################################
+
+## I. Installation ##########################################################
+
+Dependencies:
+
+(i) Java version 1.6 or higher (tested on 1.7)
+(ii) GASV to cluster discordant pairs (https://code.google.com/p/gasv/)
+
+Installation Instructions:
+
+(i) Obtain the most recent version of MultiBreak-SV:
+
+	git clone https://github.com/raphael-group/multibreak-sv.git
+
+(ii) Install the code. Run the following comman
+
+     	./install 
+
+     This will compile the Java and will create the following executables.
+
+## II. Usage Instructions #####################################################
+
+MultiBreak-SV takes (i) GASV Clusters, (ii) multi-breakpoint-mapping
+alignment qualities, and (iii) parameters for each sequencing platform
+and runs a Markov Chain Monte Carlo (MCMC) algorithm that computes the
+probability of selecting each multi-breakpoint-mapping given the GASV
+clusters.
+
+To print the usage, type 'java -jar MultiBreakSV.jar'. You will see
+the following:
+
+MultiBreakSV.java: runs the MultiBreakSV method.
+
+Usage: java mcmc.MultiBreakSV [ARGUMENTS] [OPTIONAL-ARGUMENTS]
+
+  REQUIRED ARGUMENTS:
+  --clusterfile STR	GASV clusters file (run with maximal clusters)
+
+  --assignmentfile STR	File of fragment assignments (with header).
+			Column-delimited file where each line denotes a
+			single fragment alignment. Columns are
+			  1.FragmentID: Unique ID for each sequenced fragment
+			  2.DiscordantPairs: discordant pairs that indicate
+			    this alignment (these are clustered by GASV)
+			  3.NumErrors: number of errors in the alignment
+			  4.BasesInAlignment: the number of bases in the
+			    alignment (TargetEnd-TargetStart+1)
+			  5.ExperimentLabel: name of experiment/platform/run.
+			Note that the NumErrors and BasesInAlignment account
+			for any concordantly-aligned pairs in the mapping
+			(for strobes in particular). BasesInAlignment is the
+			sum of the target lengths of the subalignments.
+
+  --experimentfile STR	File of experiments/platforms/runs (with header).
+			Column-delimited file where each line denotes a
+			single experiment.  Columns are
+			  1.ExperimentLabel: name of experiment/platform/run.
+			  2.Pseq: sequence error probability (e.g. 0.15 for
+			    PacBio, 0.01 for Illumina)
+			  3.LambdaD: expected number of fragments to support
+			    each SV (e.g. 3 for low-coverage PacBio)
+			There are only multiple lines in this file if a hybrid
+			experiment is run.
+
+  --numiterations INT	Number of iterations
+
+  --perr FLOAT		Probability that a fragment is unmapped
+			(e.g. 0.001)
+
+  OPTIONAL ARGUMENTS:
+  --prefix STR		prefix to append to output files. Default is 'out'.
+
+  --matchfile STR	File to initialize MCMC method to. The matchfile
+			is a single column of all ESP alignments to be set.
+			Default is none.
+
+#####################
+## III. Input Files
+#####################
+
+GASV Clusters File (required):
+ Clusters file output by GASV.  GASV must be run with no header and
+ with "maximal cluster" mode; these are used to establish the cluster
+ diagram for MultiBreakSV.  If there are connected components
+ (GASV clusters with BP region -1), then they must be listed before
+ the maximal clusters.  This file can be split and run in parallel if
+ the experiment can be divided into subproblems.
+
+Assignment File (required): 
+ File of alignment qualities for all multi-breakpoint-mappings.  Each
+ multi-breakpoint-mapping corresponds to a single fragment ID and a
+ unique set of discordant pairs.  We count the number of errors (edit
+ distance) and the number of bases in the alignments that comprise
+ these discordant pairs for each multi-breakpoint-mapping.
+ Additionally, we specify the type of experiment (sequencing platform,
+ e.g.) to accomodate hybrid runs.  Columns are
+	1.FragmentID:	 Unique ID for each sequenced fragment
+	2.DiscordantPairs: discordant pairs that indicate
+	  this alignment (these are clustered by GASV)
+	3.NumErrors: number of errors in the alignment
+	4.BasesInAlignment: the number of bases in the
+	  alignment (TargetEnd-TargetStart+1)
+	5.ExperimentLabel: name of experiment/platform/run.
+
+Experiment File (required):
+ File of hyperparameters for each experiment.  If all fragments come
+ from a single sequencing experiment, then there is only one line in
+ this file.  Columns are
+	1.ExperimentLabel: name of experiment/platform/run.
+	2.Pseq: sequence error probability (e.g. 0.15 for
+	  PacBio, 0.01 for Illumina)
+	3.LambdaD: expected number of fragments to support
+	  each SV (e.g. 3 for low-coverage PacBio)
+ Note that Perr is constant for all sequencing platforms, and so it is
+ passed as an argument to MultiBreakSV.
+
+Initial Mapping File (matchfile, optional):
+ File of discordant pairs to set as the first mapping of the MCMC
+ procedure; this is useful when you want to chain multiple samplings
+ together by taking the last mapping from a previous run and
+ initialize the next run with it.  This is simply a single-column file
+ of discordant pair IDs.
+
+#####################
+## IV. Output Files
+#####################
+
+FinalAssignment Files:
+ These files denote the frequency of sampling each
+ multi-breakpoint-mapping, including "none" (which is written as
+ 'error' in the file).  The columns are
+ 	 1. StrobeID: the fragment ID
+	 2. AssignmentIndex: numerical representation of the
+	  multi-breakpoint-mapping (-1 is always error)
+	 3. AvgAssignment: Proportion of sampled mappings that contain
+	   this multi-breakpoint-mapping
+	 4. DiscordantPairs: The discordant pairs in the 
+	   multi-breakpoint-mapping.
+ There are two FinalAssignment files: the initial sampling
+ (AvgAssignment is either 0 or 1) and the final sampling using a long
+ burnin.
+
+FinalBreakpoint Files:
+ These files denote the frequency of sampling subsets of each cluster
+ during the MCMC procedure.  The columns are
+ 	1. ClusterID: GASV Cluster ID
+	2. NumIters: Number of iterations reported
+	3-kmax+3: The number of sampled mappings that contain the
+ 	  cluster with support i for 0 <= i <= kmax.
+There are two FinalBreakpoint files: the initial sampling
+ (NumIters=1) and the final sampling using a long burnin.
+
+MCMC.txt File:
+ This file reports, for every iteration in the MCMC procedure, the log
+ probability, the number of breakpoints, and whether a move was made.
+ The columns are
+        1. Iteration
+	2. Log Prob
+	3. NumBreakpoints
+	4. MadeMove?
+
+SamplingProbs File:
+ This file reports all of the mappings, their sampling probabilities,
+ the log probability, and the assignment of all fragments.  The
+ columns are
+ 	 1. SampledProb
+	 2. LogProb
+	 3-: Fragment Assignment (by mapping index)
+
+#####################
+## V. Example Runs
+#####################
+
+The example is from one of the 1000 Genomes simulated experiments.  To run MultiBreak-SV with a random initial mapping:
+
+java -jar MultiBreakSV.jar --clusterfile example-infiles/gasv.clusters --assignmentfile example-infiles/assignments.txt --experimentfile example-infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example-outfiles/multibreaksv-randinit 
+
+To run MultiBreak-SV with a pre-specified initial mapping:
+
+java -jar MultiBreakSV.jar --clusterfile example-infiles/gasv.clusters --assignmentfile example-infiles/assignments.txt --experimentfile example-infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example-outfiles/multibreaksv-setinit --matchfile example-infiles/initialset.txt

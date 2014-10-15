@@ -1,0 +1,47 @@
+<project name="MBSV" default="distJars" basedir=".">
+    <description>
+        Build jar file for MBSV code
+    </description>
+  <!-- set global properties for this build -->
+
+  <property name="srcMBSV" location="src" />
+  <property name="buildMBSV" location="build" />
+  <property name="dist" location="bin"/>
+
+  <target name="clean"
+        description="clean up" >
+    <!-- Delete the ${build} directory tree -->
+    <delete dir="${build}"/>
+    <!-- <delete dir="${dist}"/> -->
+  </target>
+
+  <target name="init" depends="clean">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${buildMBSV}"/>
+    <mkdir dir="${dist}"/>
+  </target>
+
+  <target name="compileMBSV" depends="init"
+        description="compile the source " >
+    <!-- Compile the java code from ${srcMBSV} into ${buildMBSV} -->
+    <javac srcdir="${srcMBSV}" includeantruntime="false" destdir="${buildMBSV}"/>
+  </target>
+
+  <target name="distMBSV" depends="compileMBSV"
+	  description="generate the distribution MultiBreakSV.jar" >
+
+	<!-- make jar file -->
+	<jar jarfile="${dist}/MultiBreakSV.jar" basedir="${buildMBSV}">
+		<manifest>
+			<attribute name="Main-Class" value="MultiBreakSV"/>
+		</manifest>
+	</jar>
+ </target>
+
+  <target name="distJars" depends="distMBSV"
+        description="generates jar files" >
+  </target>
+
+</project>

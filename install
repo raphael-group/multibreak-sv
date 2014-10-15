@@ -1,0 +1,11 @@
+#!/bin/bash
+# This script will create an exectuable jar file for the MultiBreak-SV code.
+
+echo "Removing previous builds"
+rm -rf bin
+mkdir bin
+
+echo "Installing MultiBreak-SV..."
+ant
+
+echo "Installation complete.  Check for errors."
