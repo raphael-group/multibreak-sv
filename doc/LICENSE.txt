@@ -22,4 +22,4 @@ http://cs.brown.edu/people/braphael/software.html
 
 If you use MultiBreak-SV in your research, please cite:
 
-A. Ritz, A. Bashir, S. Sindi, D. Hsu, I. Hajirasouliha, and B. J. Raphael. Characterization of Structural Variants with Single Molecule and Hybrid Sequencing Approaches, under review.
+A. Ritz, A. Bashir, S. Sindi, D. Hsu, I. Hajirasouliha, and B. J. Raphael. Characterization of Structural Variants with Single Molecule and Hybrid Sequencing Approaches, Bioinformatics. 2014 Dec 15;30(24):3458-66.
