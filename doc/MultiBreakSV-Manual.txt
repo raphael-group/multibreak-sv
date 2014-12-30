@@ -37,18 +37,25 @@ Version Date: October 2014
 Table of Contents
 #############################################################################
 ## I. Installation
-## II. Usage Instructions
-## III. Input Files
-## IV. Output Files
-## V. Example Runs
+## II. Pre-Processor Usage Instructions
+##  (a). Input and Output Files
+##  (b). Example Run
+## III. MultiBreak-SV Usage Instructions
+##  (a). Input Files
+##  (b). Output Files
+##  (c). Example Runs
 #############################################################################
 
 ## I. Installation ##########################################################
 
-Dependencies:
+Dependencies: Tested in Linux.  
 
-(i) Java version 1.6 or higher (tested on 1.7)
-(ii) GASV to cluster discordant pairs (https://code.google.com/p/gasv/)
+(i) Java (tested on version 1.7)
+(ii) Perl (tested on version 1.7)
+(iii) Python (tested on version 2.7), including the following modules:
+ - optparse, sys, os, subprocess, bisect, re, numpy, pysam, cython
+(iv) GASV to cluster discordant pairs (https://code.google.com/p/gasv/).  
+Download and note the install location.
 
 Installation Instructions:
 
@@ -60,11 +67,127 @@ Installation Instructions:
 
      	./install 
 
-     This will compile the Java and will create the following executable:
+     This will compile the Java and will create the following executables:
 
-        bin/MultiBreakSV.jar
+     	bin/M5toMBV.py: Preprocessing python script
+    	bin/ExternalSort.jar: sorting jarfile used by M5toMBSV.py
+        bin/MultiBreakSV.jar: MultiBreak-SV java jarfile
 
-## II. Usage Instructions #####################################################
+(iii) Add the the lib/ directory to your PATH and PYTHONPATH environment variables.
+In your ~/.bashrc script, copy the two lines output by the install script.
+
+export PATH=$PATH:path/to/lib/
+export PYTHONPATH=$PYTHONPATH:path/to/lib/
+
+Then run the ~/.bashrc script by typing 'source ~/.bashrc'.  Alternatively, 
+you can simply execute the export commands within the terminal to set the
+environment variables for a single session.
+
+(iii) Troubleshooting:
+ - Windows does not have an 'env.PATH' ant variable: this is renamed to 'env.Path'.  
+This must be modified in the build.xml file.
+
+#############################################################################
+## II. Pre-Processor Usage Instructions
+#############################################################################
+
+bin/M5toMBSV.py processes a machineformat (.m5) BLASR file by executing a series
+of steps.  Briefly, they include:
+(1) IDENTIFYING CONCORDANT ALIGNMENTS
+  - remove nearly-full (within 80%) alignments.
+  - this step is rather aggressive, and appropriate for high-coverage and/or
+  whole-genome analyses.
+  - see the '--keepconcord' option to ignore this step.
+(2) FORMATTING FILES
+  - rename reads to a more readable naming scheme.
+  - convert file from m5 to a more readable format.
+(3) GETTING MULTI-BREAKPOINT MAPPINGS
+  - "piece" together partial alignments to generate multi-breakpoint-mappings
+(4) MAKING ESP FILE
+  - From multi-breakpoint mappings, generate end-sequence pair (ESP) file
+  - GASV uses this type of file.
+(5) CALCULATING AND ADDING DELETED REGIONS FROM HMM
+  - Use the HMM to refine deletion breakpionts in the original m5 file
+  - Add these as candidate deletions to the ESP file
+  - This step may take a while; if the HMM output file exists, it is
+  not overwritten.
+(6) SPLITTING ESP FILE
+  - GASV requires an Lmin/Lmax, which changes depending on the fragment size.
+  - "Bin" the ESPs into different Lmin/Lmax regions.
+(7) WRITING ASSIGNMENT FILE
+  - Write the assignment file of subreads. Input for MultiBreak-SV.
+(8) MAKING EXPERIMENT FILE
+  - Write the experiment file. Input for MultiBreak-SV.
+(9) RUNNING GASV
+  - Run GASV on the binned ESP files.  Clusters are input to MultiBreak-SV.
+(10) SPLITTING CLUSTERS FILE FOR MBSV
+  - Divides the gasv.in.clusters file into independent subproblems.  
+  - Allows for easy parallelization.
+
+To print the usage, type 'python bin/M5toMBSV.py -h'. You will see
+the following. Note that both a path to gasv and an .m5 file are required.
+
+Usage: M5toMBSV.py [options] <path-to-gasv> <file.m5>
+
+	path-to-gasv: root directory of GASV installation, 
+		e.g., <path-to-gasv>/gasv-read-only/. 
+		Necessary because scripts/sortPR.bash and bin/GASV.jar
+		are called in this script.
+	file.m5: required pacbio alignment file (m5 format).
+
+Options:
+  -h, --help            show this help message and exit
+  --prefix=PREFIX       String to prepend to all output files. Default =
+                        "out".
+  --binsize=BINSIZE     Size of bins for discordant pairs to run through GASV.
+                        The larger the bin size, the larger the region of
+                        uncertainty for the breakpoints (which may correspond
+                        to alignment uncertainty).  Increasing this binsize
+                        will merge clusters.  Default=200.
+  --experiment=EXPERIMENT
+                        experiment label. Default = "pacbio".
+  --lambdad=LAMBDAD     lambda_d for MBSV (corresponds to sequence coverage).
+                        Default = 3.0.
+  --pseq=PSEQ           probability of an error from sequencing. Default =
+                        0.15 (pacbio).
+  --keepconcord         Consider multi-breakpoint-mappings from reads that
+                        have some concordant alignment.  Warning: this
+                        drastically increases the number of multi-breakpoint-
+                        mappings, and is not advised for whole-genome
+                        analysis.  Default=False.
+
+II(a). Input Files and Output Files #########################################
+
+The main input file is Preprocessor-example/infiles/venter-chr17.m5
+ - This file is the first 25,000 lines of the simulated longread data from the Venter chromosome.
+This file is very small for a run - typical files are a few Gb.  GitHub allows only 100Mb files.  As a result, the output contains too few multi-breakpoint-mappings to make any sense of it; this is simply used to test that the program is working correctly.
+
+See https://github.com/PacificBiosciences/blasr/wiki/Blasr-Output-Format for information
+about m5 and other BLASR formats.
+
+There are many intermediate output files that are generated at various steps.  
+They are roughly organized into subdirectories according to the preprocessing step.  
+The main output files that are useful for MultiBreak-SV are located in *-MBSVinputs/:
+ - assignments.txt: alignment qualities for each multi-breakpoint-mapping
+ - experiments.txt: list of experiments (multiple lines if running MultiBreak-SV with 
+multiple sequencing experiments)
+ - cluster-subproblems/: The GASV clusters file split into independent subproblems. 
+Each one can be run as a separate instance of MultiBreakSV.
+
+II(b). Example Run  #########################################################
+
+You must have downloaded GASV and have the local path to GASV.
+
+python bin/M5toMBSV.py --prefix Preprocessor-example/outfiles/out \
+       <path_to_GASV>/ \
+       Preprocessor-example/infiles/venter-chr17.m5
+
+The output for this run is in Preprocessor-example/compressed-outfiles/example-output-run.tgz.
+ - Console output is in M5toMBSV.out within this directory.
+
+#############################################################################
+## III. MultiBreak-SV Usage Instructions ####################################
+#############################################################################
 
 MultiBreak-SV takes (i) GASV Clusters, (ii) multi-breakpoint-mapping
 alignment qualities, and (iii) parameters for each sequencing platform
@@ -132,9 +255,7 @@ Usage: java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
 			assignmentsfile. Useful if jobs are split across clusters.
 			Default is false.
 
-#####################
-## III. Input Files
-#####################
+III(a). Input Files #########################################################
 
 GASV Clusters File (required):
  Clusters file output by GASV.  GASV must be run with no header and
@@ -179,9 +300,7 @@ Initial Mapping File (matchfile, optional):
  initialize the next run with it.  This is simply a single-column file
  of discordant pair IDs.
 
-#####################
-## IV. Output Files
-#####################
+III(b). Output Files #########################################################
 
 FinalAssignment Files:
  These files denote the frequency of sampling each
@@ -225,14 +344,19 @@ SamplingProbs File:
 	 2. LogProb
 	 3-: Fragment Assignment (by mapping index)
 
-#####################
-## V. Example Runs
-#####################
+III(c). Example Runs ##########################################################
 
 The example is from one of the 1000 Genomes simulated experiments.  To run MultiBreak-SV with a random initial mapping:
 
-java -jar bin/MultiBreakSV.jar --clusterfile example/infiles/gasv.clusters --assignmentfile example/infiles/assignments.txt --experimentfile example/infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example/outfiles/multibreaksv-randinit 
+java -jar bin/MultiBreakSV.jar --clusterfile MultiBreak-SV-example/infiles/gasv.clusters \
+     --assignmentfile MultiBreak-SV-example/infiles/assignments.txt \
+     --experimentfile MultiBreak-SV-example/infiles/experiments.txt \
+     --numiterations 10000 --perr 0.001 --prefix MultiBreak-SV-example/outfiles/multibreaksv-randinit 
 
 To run MultiBreak-SV with a pre-specified initial mapping:
 
-java -jar bin/MultiBreakSV.jar --clusterfile example/infiles/gasv.clusters --assignmentfile example/infiles/assignments.txt --experimentfile example/infiles/experiments.txt --numiterations 10000 --perr 0.001 --prefix example/outfiles/multibreaksv-setinit --matchfile example/infiles/initialset.txt
+java -jar bin/MultiBreakSV.jar --clusterfile MultiBreak-SV-example/infiles/gasv.clusters \
+     --assignmentfile MultiBreak-SV-example/infiles/assignments.txt \
+     --experimentfile MultiBreak-SV-example/infiles/experiments.txt \
+     --numiterations 10000 --perr 0.001 --prefix MultiBreak-SV-example/outfiles/multibreaksv-setinit \
+     --matchfile MultiBreak-SV-example/infiles/initialset.txt

@@ -8,4 +8,13 @@ mkdir bin
 echo "Installing MultiBreak-SV..."
 ant
 
+echo "Command to add lib/ directory to your PATH and PYTHONPATH environment variables."
+echo "execute this in the terminal or add to you ~/.bashrc file."
+echo ""
+
+export THISDIR=$(pwd)
+echo export PATH='$PATH':$THISDIR/lib/
+echo export PYTHONPATH='$PYTHONPATH':$THISDIR/lib/
+echo ""
+
 echo "Installation complete.  Check for errors."

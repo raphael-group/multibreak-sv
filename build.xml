@@ -1,18 +1,21 @@
-<project name="MBSV" default="distJars" basedir=".">
+<project name="MBSV" default="distCode" basedir=".">
     <description>
         Build jar file for MBSV code
     </description>
   <!-- set global properties for this build -->
 
-  <property name="srcMBSV" location="src" />
-  <property name="buildMBSV" location="build" />
-  <property name="dist" location="bin"/>
+  <property name="srcMBSV" location="src"/>
+  <property name="buildMBSV" location="build"/>
+  <property name="libMBSV" location="lib"/>
+  <property name="binMBSV" location="bin"/>
+  
 
   <target name="clean"
-        description="clean up" >
+       description="clean up" >
     <!-- Delete the ${build} directory tree -->
-    <delete dir="${build}"/>
-    <!-- <delete dir="${dist}"/> -->
+    <delete dir="${buildMBSV}"/>
+    <delete dir="${libMBSV}"/> 
+    <delete dir="${binMBSV}"/> 
   </target>
 
   <target name="init" depends="clean">
@@ -20,28 +23,52 @@
     <tstamp/>
     <!-- Create the build directory structure used by compile -->
     <mkdir dir="${buildMBSV}"/>
-    <mkdir dir="${dist}"/>
+    <mkdir dir="${libMBSV}"/>
+    <mkdir dir="${binMBSV}"/>
   </target>
 
   <target name="compileMBSV" depends="init"
         description="compile the source " >
+
     <!-- Compile the java code from ${srcMBSV} into ${buildMBSV} -->
     <javac srcdir="${srcMBSV}" includeantruntime="false" destdir="${buildMBSV}"/>
+
+    <!-- Compile cython from ${srcMBSV} into ${buildMBSV} -->
+    <exec executable="python" failonerror="true">
+      <arg line="setup.py"/>
+      <arg line="build_ext"/>
+      <arg line="--build-lib=${libMBSV}/"/>
+      <arg line="--build-temp=${buildMBSV}/"/>
+    </exec>
+
   </target>
 
   <target name="distMBSV" depends="compileMBSV"
 	  description="generate the distribution MultiBreakSV.jar" >
 
-	<!-- make jar file -->
-	<jar jarfile="${dist}/MultiBreakSV.jar" basedir="${buildMBSV}">
+	<!-- make jar file for MBSV -->
+	<jar jarfile="${binMBSV}/MultiBreakSV.jar" basedir="${buildMBSV}">
 		<manifest>
 			<attribute name="Main-Class" value="MultiBreakSV"/>
 		</manifest>
 	</jar>
- </target>
 
-  <target name="distJars" depends="distMBSV"
-        description="generates jar files" >
+	<!-- make jar file for external sort -->
+	<jar jarfile="${libMBSV}/ExternalSort.jar" basedir="${buildMBSV}">
+		<manifest>
+			<attribute name="Main-Class" value="GeneralExternalSort"/>
+		</manifest>
+	</jar>
+
+	<!-- copy python and perl files to bin and lib dirs -->
+	<copy file="${srcMBSV}/M5toMBSV.py" todir="${binMBSV}/"/>
+	<copy file="${srcMBSV}/constructMultiBreakpointAlignments.pl" todir="${libMBSV}/"/>
+	<copy file="${srcMBSV}/parseRm5ForDeletionsCython.py" todir="${libMBSV}/"/>
+
+  </target>
+
+  <target name="distCode" depends="distMBSV"
+        description="generates source code" >
   </target>
 
 </project>
