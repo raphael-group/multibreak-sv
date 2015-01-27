@@ -6,6 +6,7 @@ from Cython.Build import cythonize
 
 setup(
     name = "MBSV preprocessing app",
-    ext_modules = cythonize('src/insDelHmm.pyx'),  
+    ext_modules = cythonize('src/insDelHmm.pyx'),
+    include_dirs=[numpy.get_include()],
 )
 
