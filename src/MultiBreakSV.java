@@ -1755,11 +1755,21 @@ public class MultiBreakSV {
 		bpfile = outputname+".finalbreakpoints.longburnin";
 		//System.out.println("writing breakpoints to " + bpfile);
 		writer = new BufferedWriter(new FileWriter(bpfile));
-		writer.write("ClusterID\tNumIters\tSupport0\tSpport1\tSupport2...\n");
+		writer.write("ClusterID\tNumIters\tSupport0\tSupport1\tSupport2...\n");
 		string_iter = breakpoints.keySet().iterator();
+		double totsampled;
 		while(string_iter.hasNext()) {
 			cID = string_iter.next();
 			writer.write(breakpoints.get(cID).cID+"\t"+burnin);
+			// NEW March 2015: need to calculate index 0: we don't populate this
+			// index while we sample. 
+			totsampled = 0;
+			for(int j=1;j<breakpoints.get(cID).supportslong.length;j++) {
+			    //System.out.println("**"+totsampled);
+			    totsampled = totsampled + breakpoints.get(cID).supportslong[j];
+			}
+			breakpoints.get(cID).supportslong[0] = burnin - totsampled;
+
 			for(int j=0;j<breakpoints.get(cID).supportslong.length;j++)
 				writer.write("\t"+breakpoints.get(cID).supportslong[j]);
 			writer.write("\n");

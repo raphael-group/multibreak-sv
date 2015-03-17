@@ -300,7 +300,7 @@ FinalBreakpoint Files:
  during the MCMC procedure.  The columns are
  	1. ClusterID: GASV Cluster ID
 	2. NumIters: Number of iterations reported
-	3-kmax+3: The number of sampled mappings that contain the
+	3-(kmax+3): The number of sampled mappings that contain the
  	  cluster with support i for 0 <= i <= kmax.
 There are two FinalBreakpoint files: the initial sampling
  (NumIters=1) and the final sampling using a long burnin.
