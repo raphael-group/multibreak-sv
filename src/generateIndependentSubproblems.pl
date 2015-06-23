@@ -23,18 +23,16 @@ use strict;
 
 $| = 1; # force flush right away
 
-### Three arguments are required:
+### Two arguments are required:
 ### (1) clusters file (*.clusters)
-### (2) batch input file for GASV that lists all ESPs
-### (3) output directory.
-if (@ARGV != 3) {
+### (2) output directory.
+if (@ARGV != 2) {
     print "ERROR: three arguments required.\n";
     die;
 }
 my $clust = $ARGV[0]; 
-my $inputfile = $ARGV[1];
-my $outdir = $ARGV[2];
-print "ARGS ARE $clust $inputfile $outdir\n";
+my $outdir = $ARGV[1];
+print "ARGS ARE $clust $outdir\n";
 
 ### Read in clusters 
 open(CLUST,$clust) or die;
@@ -58,7 +56,7 @@ while(my $line = <CLUST>) {
     my @longreadlist = ();
     foreach my $esp (@row2) {
 	$inclusters{$esp} = 1;
-	$esp =~ m/(\d+)_*/;
+	$esp =~ m/longread_(\d+)/;
 	my $longread = $1;
 	push(@longreadlist,$longread);
 	if(!defined($longreads{$longread})) { $longreads{$longread} = [()]; }
@@ -86,7 +84,6 @@ close(CLUST);
 
 ## sort the keys.
 my @keys = sort {$a<=>$b} keys %longreadIDs;
-shift(@keys);
 my $n = @keys;
 print "".(@keys)." longreads\n"; 
 
@@ -120,7 +117,7 @@ while($seen < $n) {
     ## this includes all clusters with any longread alignment.
     while($i < @s) {
 	my $longread = $s[$i];
-	print "\tlongread #$i of ".(@s).": $longread\n";
+	#print "\tlongread #$i of ".(@s).": $longread\n";
 	# get cids of longread
 	my @cids = @{$longreads{$longread}};
 	#print "\t\tcids = @cids\n";

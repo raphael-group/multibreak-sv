@@ -362,10 +362,9 @@ of iterations according to the size of the subproblem.
 IV(a). generateIndependentSubproblems.pl Script #############################
 
 This perl script splits the clusters file into independent subproblems.  There
-are three required arguments:
+are two required arguments:
 (1) clusters file (*.clusters)
-(2) batch input file for GASV that lists all ESPs
-(3) output directory
+(2) output directory
 
 The output directory will be populated with clusters files.
 Each file is annotated with the subset/iteration that the
@@ -378,20 +377,33 @@ first make the directory to store the new cluster files:
 
 mkdir Preprocessor-example/outfiles/out-independentProbs/
 
-Then run the perl script:
+Then run the perl script on the Preprocessor GASV file:
 
 perl bin/generateIndependentSubproblems.pl \
      Preprocessor-example/outfiles/out-RunGASV/gasv.in.clusters \
-     Preprocessor-example/outfiles/out-RunGASV/gasv.in \
      Preprocessor-example/outfiles/out-independentProbs/
 
 This will generate 34 subsets, one for each cluster.  The example dataset is
 trivial in this case - every cluster is independent.  However, larger datasets
-will have indepdent clusters files with multiple lines.  
+will have indepdent clusters files with multiple lines. For example, running
+the perl script on the MultiBreakSV example produces a single independent
+cluster:
+
+mkdir MultiBreak-SV-example/infiles/independentProbs/
+perl bin/generateIndependentSubproblems.pl \
+     MultiBreak-SV-example/infiles/gasv.clusters \
+     MultiBreak-SV-example/infiles/independentProbs/
+
+**NOTE:** For this script to work, the longread names must have the prefix
+'longread_#' (e.g., longread_1, longread_2, etc.).  If you have a different
+naming convention, then you must change the regular expression on L59.
 
 To run one of these subproblems with MultiBreak-SV, you simply replace
 the --clusterfile with one of the subproblem names (be sure to also change
 the --prefix as well).  You may use the same assignmentfile for each run.
+You will get warnings saying that some of the multi-breakpoint-reads don't
+appear in the clusters file; this is expected, since you are only running a 
+portion of the clusters.
 
 It is faster for MultiBreak-SV to first read the clusters file, since
 it is so small, and then only retain the multi-breakpoint-mappings that appear
