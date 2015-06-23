@@ -9,8 +9,7 @@
 ###
 ### Three arguments are required:
 ### (1) clusters file (*.clusters)
-### (2) batch input file for GASV that lists all ESPs
-### (3) output directory.
+### (2) output directory.
 ###
 ### The output directory will be populated with clusters files.
 ### Each file is annotated with the subset/iteration that the
