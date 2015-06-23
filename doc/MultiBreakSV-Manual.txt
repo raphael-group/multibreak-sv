@@ -398,7 +398,7 @@ it is so small, and then only retain the multi-breakpoint-mappings that appear
 in these clusters. To do this, also use the --readclustersfirst option.
    
 #############################################################################
-IV. Additional Notes ########################################################
+V. Additional Notes #########################################################
 #############################################################################
 
 A. Currently, the software is designed for human chromosomes; these
