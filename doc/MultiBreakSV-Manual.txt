@@ -22,6 +22,9 @@ Table of Contents
 ##  (a). Input Files
 ##  (b). Output Files
 ##  (c). Example Runs
+## IV. Running MultiBreak-SV as Separate Subproblems
+##  (a). generateIndependentSubproblems.pl Script
+##  (b). Example Runs
 #############################################################################
 
 ## I. Installation ##########################################################
@@ -157,7 +160,7 @@ II(b). Example Run  #########################################################
 You must have downloaded GASV and have the local path to GASV.
 
 python bin/M5toMBSV.py --prefix Preprocessor-example/outfiles/out \
-       <path_to_GASV>/ \
+       <path_to_GASV>/ lib/ \
        Preprocessor-example/infiles/venter-chr17.m5
 
 The output for this run is in Preprocessor-example/compressed-outfiles/example-output-run.tgz.
@@ -320,7 +323,7 @@ SamplingProbs File:
  columns are
  	 1. SampledProb
 	 2. LogProb
-	 3-: Fragment Assignment (by mapping index)
+	 3: Fragment Assignment (by mapping index)
 
 III(c). Example Runs ##########################################################
 
@@ -338,3 +341,56 @@ java -jar bin/MultiBreakSV.jar --clusterfile MultiBreak-SV-example/infiles/gasv.
      --experimentfile MultiBreak-SV-example/infiles/experiments.txt \
      --numiterations 10000 --perr 0.001 --prefix MultiBreak-SV-example/outfiles/multibreaksv-setinit \
      --matchfile MultiBreak-SV-example/infiles/initialset.txt
+
+#############################################################################
+## IV. Running MultiBreak-SV as Separate Subproblems ########################
+#############################################################################
+
+The structure of the GASV clusters in the pre-processing step allow for the
+entire space to be divided into independent subproblems.  Briefly, all 
+alignments for a particular multi-breakpoint-read must be considered at the
+same time, and all clusters that contain these alignments must be considered.
+As a result, any other multi-breakpoint-reads in those clusters are also 
+considered at the same time.  In practice, there are many ``independent''
+clusters, and only a few subproblems that are quite large (often in highly
+repetitive regions).  When running MultiBreak-SV, you can change the number
+of iterations according to the size of the subproblem.
+
+IV(a). generateIndependentSubproblems.pl Script #############################
+
+This perl script splits the clusters file into independent subproblems.  There
+are three required arguments:
+(1) clusters file (*.clusters)
+(2) batch input file for GASV that lists all ESPs
+(3) output directory
+
+The output directory will be populated with clusters files.
+Each file is annotated with the subset/iteration that the
+subproblem was determined. 
+
+IV(b). Example Runs #########################################################
+
+To split the GASV clusters file from the example into independent subproblems,
+first make the directory to store the new cluster files:
+
+mkdir Preprocessor-example/outfiles/out-independentProbs/
+
+Then run the perl script:
+
+perl bin/generateIndependentSubproblems.pl \
+     Preprocessor-example/outfiles/out-RunGASV/gasv.in.clusters \
+     Preprocessor-example/outfiles/out-RunGASV/gasv.in \
+     Preprocessor-example/outfiles/out-independentProbs/
+
+This will generate 34 subsets, one for each cluster.  The example dataset is
+trivial in this case - every cluster is independent.  However, larger datasets
+will have indepdent clusters files with multiple lines.  
+
+To run one of these subproblems with MultiBreak-SV, you simply replace
+the --clusterfile with one of the subproblem names (be sure to also change
+the --prefix as well).  You may use the same assignmentfile for each run.
+
+It is faster for MultiBreak-SV to first read the clusters file, since
+it is so small, and then only retain the multi-breakpoint-mappings that appear
+in these clusters. To do this, also use the --readclustersfirst option.
+

@@ -62,6 +62,7 @@
 
 	<!-- copy python and perl files to bin and lib dirs -->
 	<copy file="${srcMBSV}/M5toMBSV.py" todir="${binMBSV}/"/>
+	<copy file="${srcMBSV}/generateIndependentSubproblems.pl" todir="${binMBSV}/"/>
 	<copy file="${srcMBSV}/constructMultiBreakpointAlignments.pl" todir="${libMBSV}/"/>
 	<copy file="${srcMBSV}/parseRm5ForDeletionsCython.py" todir="${libMBSV}/"/>
 
