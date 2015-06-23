@@ -25,6 +25,7 @@ Table of Contents
 ## IV. Running MultiBreak-SV as Separate Subproblems
 ##  (a). generateIndependentSubproblems.pl Script
 ##  (b). Example Runs
+## V. Additional Notes
 #############################################################################
 
 ## I. Installation ##########################################################
@@ -50,7 +51,7 @@ Installation Instructions:
 
      This will compile the Java and will create the following executables:
 
-     	bin/M5toMBV.py: Preprocessing python script
+     	bin/M5toMBSV.py: Preprocessing python script
     	bin/ExternalSort.jar: sorting jarfile used by M5toMBSV.py
         bin/MultiBreakSV.jar: MultiBreak-SV java jarfile
 
@@ -184,7 +185,9 @@ MultiBreakSV.java: runs the MultiBreakSV method.
 Usage: java -jar bin/MultiBreakSV.jar [ARGUMENTS] [OPTIONAL-ARGUMENTS]
 
   REQUIRED ARGUMENTS:
-  --clusterfile STR	GASV clusters file (run with maximal clusters)
+  --clusterfile STR	GASV clusters file (run with maximal clusters), 
+                        or an "iterations" file output from M5toMBSV.py, 
+                        corresponding to an independent set of clusters.
 
   --assignmentfile STR	File of fragment assignments (with header).
 			Column-delimited file where each line denotes a
@@ -393,4 +396,42 @@ the --prefix as well).  You may use the same assignmentfile for each run.
 It is faster for MultiBreak-SV to first read the clusters file, since
 it is so small, and then only retain the multi-breakpoint-mappings that appear
 in these clusters. To do this, also use the --readclustersfirst option.
+   
+#############################################################################
+IV. Additional Notes ########################################################
+#############################################################################
 
+A. Currently, the software is designed for human chromosomes; these
+are either numbered or labeled X or Y.  If you wish to run
+MultiBreak-SV with sequence data from another organism, you must first
+map the chromosome names to integers.
+
+B. If you have paired-end data (e.g., Illumina) in the form of BAM
+files, you can convert the BAM files to endsequence pair (ESP) files
+(the inputs to GASV) using the BAM2GASV script provided with GASV.
+You then must add these as inputs to GASV along with the
+multi-breakpoint-reads so clusters contain a mixture.  You will have
+to re-run steps (9) and (10) documented above:
+(9) RUNNING GASV
+  - Run GASV on the binned ESP files.  Clusters are input to MultiBreak-SV.
+(10) SPLITTING CLUSTERS FILE FOR MBSV
+  - Divides the gasv.in.clusters file into independent subproblems.  
+  - Allows for easy parallelization.
+
+When running GASV, you must modify the GASV input file to also
+consider the paired-end ESP file, along with the Lmin/Lmax output by
+BAM2GASV.  You will also have to modify the assignment file and the
+experiment file that are inputs to MultiBreak-SV.
+  - For every end-sequence pair, you must add a line to the assignment
+    file.  Note that some of the alignment information may be missing
+    from the paired-end sequencing (see C below).
+  - Add a single line to the experiment file with different
+    probabilities for a sequencing error (e.g., 0.01) and lambda
+    (e.g., 10).
+
+C. If you have BLASR alignments in BAM files, some information about
+the alignments (the location of mismatches, insertions and deletions)
+in the alignments will be missing.  All runs were conducted using m5
+files, which contains this information.  We are working on a BAM2MBSV
+script that will convert BAM files, adding default values for missing
+information.
