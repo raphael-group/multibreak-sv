@@ -65,6 +65,7 @@
 	<copy file="${srcMBSV}/generateIndependentSubproblems.pl" todir="${binMBSV}/"/>
 	<copy file="${srcMBSV}/constructMultiBreakpointAlignments.pl" todir="${libMBSV}/"/>
 	<copy file="${srcMBSV}/parseRm5ForDeletionsCython.py" todir="${libMBSV}/"/>
+	<copy file="${srcMBSV}/quick-post-process.py" todir="${binMBSV}/"/>
 
   </target>
 

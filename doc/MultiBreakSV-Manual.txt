@@ -21,6 +21,7 @@ Table of Contents
 ## III. MultiBreak-SV Usage Instructions
 ##  (a). Input Files
 ##  (b). Output Files
+##       (New Sept 2015) Output File Parser
 ##  (c). Example Runs
 ## IV. Running MultiBreak-SV as Separate Subproblems
 ##  (a). generateIndependentSubproblems.pl Script
@@ -38,6 +39,7 @@ Dependencies: Tested in Linux.
  - optparse, sys, os, subprocess, bisect, re, numpy, pysam, cython
 (iv) GASV to cluster discordant pairs (https://code.google.com/p/gasv/).  
 Download and note the install location.
+(v) Apache Ant
 
 Installation Instructions:
 
@@ -68,6 +70,7 @@ environment variables for a single session.
 (iii) Troubleshooting:
  - Windows does not have an 'env.PATH' ant variable: this is renamed to 'env.Path'.  
 This must be modified in the build.xml file.
+- The ~/.bashrc file on Macs is named ~/.bash_profile.
 
 #############################################################################
 ## II. Pre-Processor Usage Instructions
@@ -327,6 +330,58 @@ SamplingProbs File:
  	 1. SampledProb
 	 2. LogProb
 	 3: Fragment Assignment (by mapping index)
+
+Output File Parser: (New Sept 2015) ###########################################
+
+The Python function quick-post-process.py takes output of MultiBreak-SV and
+produces a file with two different scores for each cluster: an SVFrequency score
+(the proportion of times that the cluster was supported by any
+multi-breakpoint-reads in the mapping over all sampled mappings)
+and an AverageProbability score (the average of all the probabilities
+of all supporting multi-breakpoint-reads for each cluster).
+
+Note that these values do not correspond to the final probabilities
+reported in the MultiBreak-SV paper; those scores utilized the cluster
+diagrams and the alignment probabilities to compute a probability of
+each candidate cluster based on the presence AND absence of alignments.
+
+Further, the AverageProbability may be misleading if there is a cluster with
+many, many pairs - suppose there are 20 pairs but 3 of them are always sampled
+(avgProb=1.0) and the rest are never sampled (avgProb=0.0).  While the SVFrequency
+will be 1.0 (there are at least two reads sampled for each mapping), the average
+probability will be 3/20=0.15.
+
+Additionally, the location of the SV is an estimate of the breakpoint
+region as defined in the GASV file.  Thus, not all pairs of (startloc, endloc)
+values may be valid in terms of GASV clusters.
+
+Usage: quick-post-process.py [options]
+Outputs a file with Cluster information, SVFrequency, and AverageProbability.
+
+Options:
+  -h, --help            show this help message and exit
+  --clustersfile=CLUSTERSFILE
+                        GASV clusters file. Required.
+  --finalbreakpointfile=FINALBREAKPOINTFILE
+                        Final Breakpoint File. Required.
+  --finalassignmentfile=FINALASSIGNMENTSFILE
+                        Final Assignments File. Required.
+  --minsupport=MINSUPPORT
+                        Minimum support (# of multi-breakpoint-mappings) for
+                        SVs to count towards SVFrequency.  In other words, we
+                        "count" an SV as identified in a mapping if it
+                        contains at least this many multi-breakpoint-mappings.
+                        Default=2.
+  --outfile=OUTFILE     Outfile name. Default=out.txt.
+
+Example Run (After running III(c)):
+
+python bin/quick-post-process.py \
+       --clustersfile MultiBreak-SV-example/infiles/gasv.clusters \
+       --finalbreakpointfile MultiBreak-SV-example/outfiles/multibreaksv-randinit.finalbreakpoints.longburnin \
+       --finalassignmentfile MultiBreak-SV-example/outfiles/multibreaksv-randinit.finalassignment.longburnin \
+       --outfile MultiBreak-SV-example/outfiles/processed-output.txt
+
 
 III(c). Example Runs ##########################################################
 
