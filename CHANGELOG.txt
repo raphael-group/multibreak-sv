@@ -1,0 +1,22 @@
+Change Log for multibreak-sv
+Anna Ritz (anna.m.ritz@gmail.com)
+
+=======================================================================
+2015 September 3
+- Added a script to quickly post-process MultiBreak-SV output by generating
+two different scores for each cluster: an SVFrequency score and an
+AverageProbability score.
+
+=======================================================================
+2015 June 22
+- Added a script to generate indepedent subproblems from GASV cluster output
+so MultiBreak-SV can be run in parallel (e.g., on a cluster).
+
+=======================================================================
+2014 December 30
+- Added MultiBreak-SV pre-processor code (M5toMBSV.py), which converts BLASR
+.m5 output to MultiBreak-SV input.
+
+=======================================================================
+2014 October 15
+- Intial commit of MultiBreak-SV code (Java program)
