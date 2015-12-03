@@ -165,6 +165,10 @@ Each one can be run as a separate instance of MultiBreakSV.
 
 II(b). Example Run  #########################################################
 
+First, you may have to make the output directory.
+
+mkdir Preprocessor-example/outfiles/
+
 You must have downloaded GASV and have the local path to GASV.
 
 python bin/M5toMBSV.py --prefix Preprocessor-example/outfiles/out \
