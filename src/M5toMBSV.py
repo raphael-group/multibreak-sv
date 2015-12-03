@@ -6,7 +6,7 @@
 ## -- Ignore ChrY alignments if female sample
 ## -- Remove alignments that span the centromere
 ## -- Remove multi-breakpoint-mappings that imply a small breakpoint (<100bp)
-## -- Change the bin size for GASV: default is 200. The larger the bin size, the larger the region
+## -- Change the bin size for GASV: default is that every discordant pair has a separate Lmin/Lmax. The larger the bin size, the larger the region
 ## of uncertainty for the breakpoints (which may correspond to alignment uncertainty)
 ##
 ##
@@ -27,8 +27,8 @@ def main(args):
     parser = OptionParser(usage=usage)
     parser.add_option('','--prefix',default='out',type='string',\
                           help='String to prepend to all output files. Default = "out".')
-    parser.add_option('','--binsize',default=200,type='int',\
-  			  help='Size of bins for discordant pairs to run through GASV. The larger the bin size, the larger the region of uncertainty for the breakpoints (which may correspond to alignment uncertainty).  Increasing this binsize will merge clusters.  Default=200.')
+    parser.add_option('','--binsize',default=None,type='int',\
+  			  help='If specified, bins the the discordant pairs by Lmin/Lmax value before running GASV. The larger the bin size, the larger the region of uncertainty for the breakpoints (which may correspond to alignment uncertainty).  Increasing this binsize will merge clusters.  Optional - default behavior is not to bin the discordant pairs, and calculate Lmin/Lmax separately for each pair (using a window of +/- 300bp).')
     parser.add_option('','--experiment',default='pacbio',type='string',\
                           help='experiment label. Default = "pacbio".')
     parser.add_option('','--lambdad',default=3,type='float',\
@@ -432,19 +432,24 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir):
             continue
             
         if read_id not in orignames:
-            ## MAKE NEW ID for this fragment.
+            ## Make a new ID for this fragment.
             orignames[read_id] = 'longread_%d'  % (readnum)
             out.write('%s\t%s\n'% (read_id,orignames[read_id]))
             readnum+=1
             newids +=1
         else:
             oldids+=1
- 
+
+        ## Need to account for OUTER coordinates here.  This means that the breakpoints may be anywhere within the outer coordinates
+        ## of the discordant pair, rather than anywhere within the inner coordinates of the discordant pair.  Thus, the breakpoints
+        ## may lie "within" the aligned region, which is allowed if the alignments may span the breakpoints (especially in the case
+        ## of repetitive sequences and high-error PacBio reads).
         if orignames[read_id] in gaps: # simply add querylen to gaps
-            gaps[orignames[read_id]]+=int(event_size)-int(gap_in_query)
+            ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query
+            gaps[orignames[read_id]]+=(int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query)
         else: # add esp and gap 
             esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
-            gaps[orignames[read_id]] = int(event_size)-int(gap_in_query) 
+            gaps[orignames[read_id]] = (int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query) 
     out.close()
     print '%d esps after adding new bp calls' % (len(esps))
     print '%d new longread IDs created; %d ids seen previously' % (newids,oldids)
@@ -506,16 +511,32 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize):
     maxgap = max(name2gap.values())
     print 'maxgap is %d' % (maxgap)
 
-    bins = range(0,maxgap,binsize)
-    print '%d bins with binsize = %d and maxgap = %d'  % (len(bins),binsize,maxgap)
-    print 'bins are ',bins
+    if binsize == None: # no bins specified; compute Lmin/Lmax for every discordant pair.
+        print 'determining Lmin/Lmax for every discordant pair.'
+    else:
+        bins = range(0,maxgap,binsize)
+        print 'Binning discordant pairs into %d bins with binsize = %d and maxgap = %d'  % (len(bins),binsize,maxgap)
+        if len(bins) < 50:
+            print 'bins are ',bins
+            
+        ## make lists of counts, filenames, and file handles for each bin.
+        counts = [0 for b in bins]
+        outfilenames = ['%s/intrachrom-esps-bin-%d-%d' % (outprefix,b,b+binsize-1) for b in bins]
+        outs = [open(o,'w') for o in outfilenames]
 
-    outfilenames = ['%s/intrachrom-esps-bin-%d-%d' % (outprefix,b,b+binsize-1) for b in bins]
+    # file for bulk GASV call.
+    outgasv = open(gasvinfile,'w')
+    
+    
     transoutfile = '%s/translocations' % (outprefix)
     transout = open(transoutfile,'w')
-    outs = [open(o,'w') for o in outfilenames]
-    counts = [0 for b in bins]
     transcount = 0
+    ## lmin/lmax doesn't matter for translocations
+    ## write line to outgasv file so translocations are accounted for.
+    outgasv.write('%s\tPR\t0\t100\n' % (transoutfile))
+
+    ## For each discordant pair, (1) put it in a bin if there are bins or (2) write a file for it and
+    ## add it as a line to the outgasv file.
     with open(espfile) as fin:
         for line in fin:
             row = line.strip().split()
@@ -529,32 +550,53 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize):
                 transcount+=1
                 continue
 
-            pos = bisect_left(bins,gap)
-            if pos:
-                pos-=1
+            if binsize == None:
+                # write new file that contains just this line.
+                # This could be written in a simpler way (split the list),
+                # but this is more clear in case bins are not None.
+                outfilename = '%s/intrachrom-%s' % (outprefix,name)
+                out = open(outfilename,'w')
+                out.write(line)
+                out.close()
+
+                ## Write single Lmin/Lmax value to outgasv file.
+                ## Note that Window of +/- 300bp is hard-coded. This is the "buffer" around the
+                ## calculated gap.  TODO: make this an argument that users can change.
+                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilename,max(gap-300,0),gap+300))
+
             else:
-                print name,gap,pos
-                sys.exit('ERROR: %d does not fit within gaps.' % (gap))
-            #print name,gap,pos
-            #print outfilenames[pos]
-            #sys.exit()
+                ## there are bins.  find the one that this discordant pair belongs in.
+                ## pos is an index into outs and counts lists.
+                pos = bisect_left(bins,gap)
+                if pos:
+                    pos-=1
+                else:
+                    print name,gap,pos
+                    sys.exit('ERROR: %d does not fit within gaps.' % (gap))
+                #print name,gap,pos
+                #print outfilenames[pos]
+                #sys.exit()
 
-            outs[pos].write(line)
-            counts[pos]+=1
+                # write the line to the binned file.
+                outs[pos].write(line)
+                counts[pos]+=1
 
+    ## Close all files.
     transout.close()
-    for out in outs:
-        out.close()
-
-    out = open(gasvinfile,'w')
+    if binsize != None:
+        # if there is a list of file handles, close them.
+        for out in outs:
+            out.close()
     print '%d lines written to translocations file %s'  % (transcount,transoutfile)
-    ## lmin/lmax doesn't matter for translocations
-    out.write('%s\tPR\t0\t100\n' % (transoutfile))
-    for i in range(len(bins)):
-        if counts[i] > 0: # don't write if it's an empty file.
-            print '%d lines written to binned file %s'  % (counts[i],outfilenames[i])
-            out.write('%s\tPR\t%d\t%d\n' % (outfilenames[i],max(bins[i]-binsize,0),bins[i]+2*binsize))
-    out.close()
+
+    ## If there are bins, write the lines to the outgasv file.
+    if binsize != None:
+        for i in range(len(bins)):
+            if counts[i] > 0: # don't write if it's an empty file.
+                print '%d lines written to binned file %s'  % (counts[i],outfilenames[i])
+                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilenames[i],max(bins[i]-binsize,0),bins[i]+2*binsize))
+                
+    outgasv.close()
     print 'wrote to file %s' % (gasvinfile)
     return gasvinfile
 

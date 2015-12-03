@@ -98,7 +98,7 @@ of steps.  Briefly, they include:
   not overwritten.
 (6) SPLITTING ESP FILE
   - GASV requires an Lmin/Lmax, which changes depending on the fragment size.
-  - "Bin" the ESPs into different Lmin/Lmax regions.
+  - "Bin" the ESPs into different Lmin/Lmax regions (if --binsize is specified)
 (7) WRITING ASSIGNMENT FILE
   - Write the assignment file of subreads. Input for MultiBreak-SV.
 (8) MAKING EXPERIMENT FILE
@@ -124,11 +124,15 @@ Options:
   -h, --help            show this help message and exit
   --prefix=PREFIX       String to prepend to all output files. Default =
                         "out".
-  --binsize=BINSIZE     Size of bins for discordant pairs to run through GASV.
-                        The larger the bin size, the larger the region of
-                        uncertainty for the breakpoints (which may correspond
-                        to alignment uncertainty).  Increasing this binsize
-                        will merge clusters.  Default=200.
+  --binsize=BINSIZE     If specified, bins the the discordant pairs by
+                        Lmin/Lmax value before running GASV. The larger the
+                        bin size, the larger the region of uncertainty for the
+                        breakpoints (which may correspond to alignment
+                        uncertainty).  Increasing this binsize will merge
+                        clusters.  Optional - default behavior is not to bin
+                        the discordant pairs, and calculate Lmin/Lmax
+                        separately for each pair (using a window of +/-
+                        300bp).
   --experiment=EXPERIMENT
                         experiment label. Default = "pacbio".
   --lambdad=LAMBDAD     lambda_d for MBSV (corresponds to sequence coverage).

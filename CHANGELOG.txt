@@ -2,6 +2,11 @@ Change Log for multibreak-sv
 Anna Ritz (anna.m.ritz@gmail.com)
 
 =======================================================================
+2015 December 2
+- Made a change to account for outer coordinates in the M5toMBSV.py script
+- Changed the default behavior to determine Lmin/Lmax for every ESP for GASV clustering; the "--binsize" is an optional parameter, and if it isn't specified then no binning is done.  This differs from the old behavior, which had a default size of 200.
+
+=======================================================================
 2015 September 3
 - Added a script to quickly post-process MultiBreak-SV output by generating
 two different scores for each cluster: an SVFrequency score and an
