@@ -81,7 +81,7 @@ def buildRefDict (refFile):
             print seqname
             if len(seqList) > 0:
                 refDict[seqname] = "".join(seqList)
-            seqname = line.strip()[1:]
+            seqname = line.strip()[1:].split()[0]
             seqList = []
         else:
             seqList.append(line.strip())
