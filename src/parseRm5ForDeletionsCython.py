@@ -85,6 +85,8 @@ def buildRefDict (refFile):
             seqList = []
         else:
             seqList.append(line.strip())
+    if len(seqList) > 0:
+        refDict[seqname] = "".join(seqList)
     return refDict
                        
 def parseSam(refDict):
