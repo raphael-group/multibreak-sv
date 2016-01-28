@@ -1,6 +1,7 @@
 ##
 ## Modified version for HMM-only, chromosome specific runs. - AR Jan 2016
 ## WARNING: hg38 path and minsupport (=5) are both hard-coded in.
+
 ##
 ## Takes PacBio machineformat (.m5) files and prepares them
 ## for MultiBreak-SV.  Runs GASV as a pre-processing step.
