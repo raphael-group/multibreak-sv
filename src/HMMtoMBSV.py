@@ -1,7 +1,6 @@
 ##
 ## Modified version for HMM-only, chromosome specific runs. - AR Jan 2016
 ## WARNING: hg38 path and minsupport (=5) are both hard-coded in.
-
 ##
 ## Takes PacBio machineformat (.m5) files and prepares them
 ## for MultiBreak-SV.  Runs GASV as a pre-processing step.
@@ -224,7 +223,15 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
         for line in f:
             newdels += [line.split()]
     print '%d lines from hmm deletions file'%  (len(newdels))
-    
+
+    ## need to get rid of consecutively-sequenced subreads from same read.
+    ## this is an artifact of the library constructions. 
+    seenprefixes = set()
+    for name in orignames:
+        p = '/'.join(name.split('/')[:-1])
+        seenprefixes.add(p)
+    extrasubreads = 0 # counter for skipped subreads.
+
     ## Convert deletions to ESPs
     ignoredchrs = set()
     newidfile = '%s-FormatAlignments/mapped-names-from-hmm.txt' % (prefix)
@@ -249,6 +256,13 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
             continue
             
         if read_id not in orignames:
+            # make sure this prefix has not been seen. If it has, then ignore it.
+            p = '/'.join(read_id.split('/')[:-1])
+            if p in seenprefixes:
+                extrasubreads+=1
+                continue
+            seenprefixes.add(p)
+            # this prefix is NOT in the seenprefixes.  Add it.
             ## Make a new ID for this fragment.
             orignames[read_id] = 'longread_%d'  % (readnum)
             out.write('%s\t%s\n'% (read_id,orignames[read_id]))
@@ -280,6 +294,7 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
     out.close()
     print '%d esps after adding new bp calls' % (len(esps))
     print '%d new longread IDs created; %d ids seen previously' % (newids,oldids)
+    print '%d alignments skipped because they were redundantly-sequenced fragments.'%  (extrasubreads)
     print 'New mapped names from HMM calls are located in %s' % (newidfile)
    
     ## write updated files
