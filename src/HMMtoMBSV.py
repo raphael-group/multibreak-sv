@@ -42,6 +42,8 @@ def main(args):
                           help='probability of an error from sequencing. Default = 0.15 (pacbio).')
     parser.add_option('','--keepconcord',action='store_true',default=False, \
 			  help='Consider multi-breakpoint-mappings from reads that have some concordant alignment.  Warning: this drastically increases the number of multi-breakpoint-mappings, and is not advised for whole-genome analysis.  Default=False.')
+    parser.add_option('','--outercoords',action='store_true',default=False,\
+                          help='Determine discordant pairs by their start and end alignments, rather than the start and end of the variant.  These are also referred to as the outer coordinates.  Use this option when the breakpoint regions may not be precise (e.g., in highly-repetitive regions or BLASR alignments with no additional refinement).  The default behavior is to use the inner coordinates.')
     (opts, args) = parser.parse_args()
     if len(args) != 4:
         sys.exit('Error: four positional arguments required: <path-to-gasv> <lib-directory> <bamprefix> <chr>.')
@@ -115,10 +117,13 @@ def main(args):
         print 'done getting HMM Regions and writing to %s' % (hmmoutput) 
 
     ## generate HMM deleted region and add them.
-    espfile,mapfile,hmmdellenfile,esps = addHMMRegions(pacbiofile,fullespfile,mapfile,mappedname,prefix,libdir)
+    espfile,mapfile,hmmdellenfile,esps = addHMMRegions(pacbiofile,fullespfile,mapfile,mappedname,prefix,libdir,opts.outercoords)
       
-    ## take outer coords
-    espfile = getOuterCoords(esps,prefix)
+    ## take outer coords or inner coords
+    if opts.outercoords:
+        espfile = getOuterCoords(esps,prefix)
+    else:
+        espfile = getInnerCoords(esps,prefix)
 
     ## Sort ESP file
     sortedfile = sortESPfile(espfile,gasvdir)
@@ -174,7 +179,7 @@ def main(args):
 
     return
 
-def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir):
+def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoords):
     print '\nADDING DELETED REGIONS FROM HMM'
 
     hmmoutput = '%s-FormatAlignments/hmm-deletions.txt' % (prefix)
@@ -252,16 +257,26 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir):
         else:
             oldids+=1
 
-        ## Need to account for OUTER coordinates here.  This means that the breakpoints may be anywhere within the outer coordinates
-        ## of the discordant pair, rather than anywhere within the inner coordinates of the discordant pair.  Thus, the breakpoints
-        ## may lie "within" the aligned region, which is allowed if the alignments may span the breakpoints (especially in the case
-        ## of repetitive sequences and high-error PacBio reads).
-        if orignames[read_id] in gaps: # simply add querylen to gaps
-            ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query
-            gaps[orignames[read_id]]+=(int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query)
-        else: # add esp and gap 
-            esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
-            gaps[orignames[read_id]] = (int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query) 
+        if outercoords:
+            ## Need to account for OUTER coordinates here.  This means that the breakpoints may be anywhere within the outer coordinates
+            ## of the discordant pair, rather than anywhere within the inner coordinates of the discordant pair.  Thus, the breakpoints
+            ## may lie "within" the aligned region, which is allowed if the alignments may span the breakpoints (especially in the case
+            ## of repetitive sequences and high-error PacBio reads).
+            if orignames[read_id] in gaps: # simply add querylen to gaps
+                ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query
+                gaps[orignames[read_id]]+=(int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query)
+            else: # add esp and gap 
+                esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
+                gaps[orignames[read_id]] = (int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query) 
+        else: 
+            ## NEed to account for inner coords here.  
+            if orignames[read_id] in gaps: # simply add querylen to gaps                                                                                                                  
+                ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query                                                               
+                gaps[orignames[read_id]]+=int(event_size)-int(gap_in_query)
+            else: # add esp and gap                                                                                                                          
+                esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
+                gaps[orignames[read_id]] = int(event_size)-int(gap_in_query)
+                
     out.close()
     print '%d esps after adding new bp calls' % (len(esps))
     print '%d new longread IDs created; %d ids seen previously' % (newids,oldids)
@@ -296,6 +311,17 @@ def getOuterCoords(esps,prefix):
         out.write('\t'.join(newline)+'\n')
     out.close()
     print 'Wrote outer coords to %s ' %(newespfile)
+    return newespfile
+
+def getInnerCoords(esps,prefix):
+    print '\nCONVERTING ESPS TO INNER COORDS'
+    newespfile = '%s-FormatAlignments/esps-inner-coords.txt' % (prefix)
+    out = open(newespfile,'w')
+    for esp in esps:
+        newline = esp[:2] + [esp[3]] + esp[3:7] + [esp[6]] + esp[8:]
+        out.write('\t'.join(newline)+'\n')
+    out.close()
+    print 'Wrote inner coords to %s' % (newespfile)
     return newespfile
 
 def sortESPfile(espfile,gasvdir):

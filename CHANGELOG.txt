@@ -1,6 +1,11 @@
 Change Log for multibreak-sv
 Anna Ritz (anna.m.ritz@gmail.com)
 
+======================================================================
+2016 January 28 (dev branch)
+- Added an HMMtoMBSV.py that runs only the HMM deletions.
+- Added an argument called --outercoords that takes the outer coords if specified. New default behavior is to take the inner coords (the reported breakpoints of the SV).
+
 =======================================================================
 2015 December 2
 - Made a change to account for outer coordinates in the M5toMBSV.py script
