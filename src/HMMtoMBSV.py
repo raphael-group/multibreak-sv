@@ -32,7 +32,7 @@ def main(args):
     parser.add_option('','--prefix',default='out',type='string',\
                           help='String to prepend to all output files. Default = "out".')
     parser.add_option('','--binsize',default=None,type='int',\
-  			  help='If specified, bins the the discordant pairs by Lmin/Lmax value before running GASV. The larger the bin size, the larger the region of uncertainty for the breakpoints (which may correspond to alignment uncertainty).  Increasing this binsize will merge clusters.  Optional - default behavior is not to bin the discordant pairs, and calculate Lmin/Lmax separately for each pair (using a window of +/- 300bp).')
+  			  help='If specified, bins the the discordant pairs by Lmin/Lmax value before running GASV. The larger the bin size, the larger the region of uncertainty for the breakpoints (which may correspond to alignment uncertainty).  Increasing this binsize will merge clusters.  Optional - default behavior is not to bin the discordant pairs, and calculate Lmin/Lmax separately for each pair.  See lminlmaxrange and lminlmaxpercent arguments for default settings.')
     parser.add_option('','--experiment',default='pacbio',type='string',\
                           help='experiment label. Default = "pacbio".')
     parser.add_option('','--lambdad',default=3,type='float',\
@@ -43,6 +43,12 @@ def main(args):
 			  help='Consider multi-breakpoint-mappings from reads that have some concordant alignment.  Warning: this drastically increases the number of multi-breakpoint-mappings, and is not advised for whole-genome analysis.  Default=False.')
     parser.add_option('','--outercoords',action='store_true',default=False,\
                           help='Determine discordant pairs by their start and end alignments, rather than the start and end of the variant.  These are also referred to as the outer coordinates.  Use this option when the breakpoint regions may not be precise (e.g., in highly-repetitive regions or BLASR alignments with no additional refinement).  The default behavior is to use the inner coordinates.')
+    parser.add_option('','--lminlmaxrange',default=300,type='int',\
+                          help='Maximum "buffer" to set Lmin/Lmax for each ESP.  For large events, Lmin is set to the event size minus lminlmaxrange and Lmax is set to the event size plus lminlmaxrange. Default is 300.')
+    parser.add_option('','--lminlmaxpercent',default=0.1,type='float', \
+                          help='For smaller events, lminlmax buffer is set to lminlmaxpercent of the event size.  Default is 0.10 (that is, Lmin and Lmax are determined within 10% of the event size).')
+    parser.add_option('','--filtersmallevents',default=200,type='int',\
+                          help='Ignore intrachromosomal events smaller than this value. Default = 200.')
     (opts, args) = parser.parse_args()
     if len(args) != 4:
         sys.exit('Error: four positional arguments required: <path-to-gasv> <lib-directory> <bamprefix> <chr>.')
@@ -116,7 +122,7 @@ def main(args):
         print 'done getting HMM Regions and writing to %s' % (hmmoutput) 
 
     ## generate HMM deleted region and add them.
-    espfile,mapfile,hmmdellenfile,esps = addHMMRegions(pacbiofile,fullespfile,mapfile,mappedname,prefix,libdir,opts.outercoords)
+    espfile,mapfile,hmmdellenfile,esps = addHMMRegions(pacbiofile,fullespfile,mapfile,mappedname,prefix,libdir,opts.outercoords,opts.filtersmallevents)
       
     ## take outer coords or inner coords
     if opts.outercoords:
@@ -128,7 +134,7 @@ def main(args):
     sortedfile = sortESPfile(espfile,gasvdir)
 
     ## split ESPs
-    gasvinfile = splitESPs(sortedfile,mapfile,'%s-RunGASV/binned-esps/' % (prefix),'%s-RunGASV/gasv.in' % (prefix),opts.binsize)
+    gasvinfile = splitESPs(sortedfile,mapfile,'%s-RunGASV/binned-esps/' % (prefix),'%s-RunGASV/gasv.in' % (prefix),opts.binsize,opts.lminlmaxrange,opts.lminlmaxpercent)
 
     adjustedalignmentfile = '%s-FormatAlignments/empty-adjustedalignments.txt' % (prefix)
     os.system('touch %s' % (adjustedalignmentfile))
@@ -178,7 +184,7 @@ def main(args):
 
     return
 
-def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoords):
+def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoords,mineventsize):
     print '\nADDING DELETED REGIONS FROM HMM'
 
     hmmoutput = '%s-FormatAlignments/hmm-deletions.txt' % (prefix)
@@ -227,18 +233,20 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
     ## need to get rid of consecutively-sequenced subreads from same read.
     ## this is an artifact of the library constructions. 
     seenprefixes = set()
-    for name in orignames:
+    For name in orignames:
         p = '/'.join(name.split('/')[:-1])
         seenprefixes.add(p)
     extrasubreads = 0 # counter for skipped subreads.
-
     ## Convert deletions to ESPs
     ignoredchrs = set()
     newidfile = '%s-FormatAlignments/mapped-names-from-hmm.txt' % (prefix)
     out= open(newidfile,'w')
     for read_id,target_id,start_align,end_align,del_start,del_end,strand,event_type,event_size,gap_in_query,ignore1,ignore2 in newdels:
-        ## Only keep deletions larger than 200bp.
-        if event_type != 'D' or int(del_end)-int(del_start)<200:
+        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
+            print read_id,event_type,event_size
+
+        ## Only keep deletions larger than filtersmallevents.
+        if event_type != 'D' or int(del_end)-int(del_start)<mineventsize:
             continue
 
         ## format chromosome
@@ -254,7 +262,8 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
                 print 'WARNING: %s is not a recognized chromosome. Ignoring this ESP.' % (chrom)
                 ignoredchrs.add(chrom)
             continue
-            
+        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
+            print 'checking orignames...'
         if read_id not in orignames:
             # make sure this prefix has not been seen. If it has, then ignore it.
             p = '/'.join(read_id.split('/')[:-1])
@@ -270,6 +279,9 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
             newids +=1
         else:
             oldids+=1
+
+        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
+            print orignames[read_id]
 
         if outercoords:
             ## Need to account for OUTER coordinates here.  This means that the breakpoints may be anywhere within the outer coordinates
@@ -292,11 +304,12 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
                 gaps[orignames[read_id]] = int(event_size)-int(gap_in_query)
                 
     out.close()
+    print [e for e in esps if e[0] == 'longread_2257']
     print '%d esps after adding new bp calls' % (len(esps))
     print '%d new longread IDs created; %d ids seen previously' % (newids,oldids)
     print '%d alignments skipped because they were redundantly-sequenced fragments.'%  (extrasubreads)
     print 'New mapped names from HMM calls are located in %s' % (newidfile)
-   
+    sys.exit()
     ## write updated files
     fullespfile = '%s-FormatAlignments/esps-with-hmmdels.full' % (prefix)
     espout = open(fullespfile,'w')
@@ -309,7 +322,13 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
         if esp[0] not in gaps:
             sys.exit('ERROR: %s does not have a gap.'% (len(esp[0])))
         mapout.write('%s\t%s\t%d\n' % (''.join(esp),esp[0],gaps[esp[0]]))
-        lenout.write('%s\t%d\n'% (esp[0],int(esp[7])-int(esp[2])+gaps[esp[0]]))
+        if outercoords:
+            ## lengths include the aligned portions.
+            lenout.write('%s\t%d\n'% (esp[0],int(esp[7])-int(esp[2])+gaps[esp[0]]))
+        else:
+            ## lengths are simply the gaps.
+            lenout.write('%s\t%d\n' % (esp[0],gaps[esp[0]]))
+
     espout.close()
     mapout.close()
     lenout.close()
@@ -349,7 +368,7 @@ def sortESPfile(espfile,gasvdir):
     print 'Sorted file is %s' % (sortedfile)
     return sortedfile
 
-def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize):
+def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize,lminlmaxrange,lminlmaxpercent):
     print '\nSPLITTING ESP FILE'
     ## read map file.
     name2gap = {}
@@ -378,8 +397,7 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize):
         outs = [open(o,'w') for o in outfilenames]
 
     # file for bulk GASV call.
-    outgasv = open(gasvinfile,'w')
-    
+    outgasv = open(gasvinfile,'w')    
     
     transoutfile = '%s/translocations' % (outprefix)
     transout = open(transoutfile,'w')
@@ -413,12 +431,13 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize):
                 out.close()
 
                 ## Write single Lmin/Lmax value to outgasv file.
-                ## Note that Window of +/- 300bp is hard-coded. This is the "buffer" around the
-                ## calculated gap.  TODO: make this an argument that users can change.
-                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilename,max(gap-300,0),gap+300))
+                lminlmaxbuffer = min(lminlmaxrange,int(lminlmaxpercent*gap))
+                if gap-lminlmaxbuffer < 0:
+                    sys.exit('ERROR: lminlmaxbuffer=%d but event size is %d' % (lminlmaxbuffer,gap))
+                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilename,0,lminlmaxbuffer))
 
             else:
-                ## there are bins.  find the one that this discordant pair belongs in.
+                ## There Are Bins.  find the one that this discordant pair belongs in.
                 ## pos is an index into outs and counts lists.
                 pos = bisect_left(bins,gap)
                 if pos:
