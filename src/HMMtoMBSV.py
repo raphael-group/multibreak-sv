@@ -206,20 +206,20 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
         
     ## Read current ESPs
     esps = []
-    with open(fullespfile) as f:
-        for line in f:
-            esps += [line.split()]
-    print '%d original esps.' % (len(esps))
+    #with open(fullespfile) as f:
+    #    for line in f:
+    #        esps += [line.split()]
+    #print '%d original esps.' % (len(esps))
 
     ## read gaps from ESPs
-    gaps = {}
-    with open(mapfile) as f:
-        for line in f:
-            row = line.strip().split()
-            e = row[1].split(',')
-            g = row[2].split(',')
-            for i in range(len(e)):
-                gaps[e[i]] = int(g[i])
+    #gaps = {}
+    #with open(mapfile) as f:
+    #    for line in f:
+    #        row = line.strip().split()
+    #        e = row[1].split(',')
+    #        g = row[2].split(',')
+    #        for i in range(len(e)):
+    #            gaps[e[i]] = int(g[i])
 
     ## read HMM deletions 
     newids = 0
@@ -233,18 +233,25 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
     ## need to get rid of consecutively-sequenced subreads from same read.
     ## this is an artifact of the library constructions. 
     seenprefixes = set()
-    For name in orignames:
-        p = '/'.join(name.split('/')[:-1])
-        seenprefixes.add(p)
+    #For name in orignames:
+    #    p = '/'.join(name.split('/')[:-1])
+    #    seenprefixes.add(p)
+
     extrasubreads = 0 # counter for skipped subreads.
+
+    ## write updated files
+    fullespfile = '%s-FormatAlignments/esps-with-hmmdels.full' % (prefix)
+    espout = open(fullespfile,'w')
+    espmapping = '%s-FormatAlignments/espmapping-with-hmmdels.txt' % (prefix)
+    mapout = open(espmapping,'w')
+    lengths = '%s-FormatAlignments/hmmdel-lengths.txt' % (prefix)
+    lenout = open(lengths,'w')
+
     ## Convert deletions to ESPs
     ignoredchrs = set()
     newidfile = '%s-FormatAlignments/mapped-names-from-hmm.txt' % (prefix)
-    out= open(newidfile,'w')
+    newidout = open(newidfile,'w')
     for read_id,target_id,start_align,end_align,del_start,del_end,strand,event_type,event_size,gap_in_query,ignore1,ignore2 in newdels:
-        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
-            print read_id,event_type,event_size
-
         ## Only keep deletions larger than filtersmallevents.
         if event_type != 'D' or int(del_end)-int(del_start)<mineventsize:
             continue
@@ -262,8 +269,7 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
                 print 'WARNING: %s is not a recognized chromosome. Ignoring this ESP.' % (chrom)
                 ignoredchrs.add(chrom)
             continue
-        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
-            print 'checking orignames...'
+
         if read_id not in orignames:
             # make sure this prefix has not been seen. If it has, then ignore it.
             p = '/'.join(read_id.split('/')[:-1])
@@ -273,62 +279,44 @@ def addHMMRegions(m5file,fullespfile,mapfile,orignamefile,prefix,libdir,outercoo
             seenprefixes.add(p)
             # this prefix is NOT in the seenprefixes.  Add it.
             ## Make a new ID for this fragment.
-            orignames[read_id] = 'longread_%d'  % (readnum)
-            out.write('%s\t%s\n'% (read_id,orignames[read_id]))
+            orignames[read_id] = ['longread_%d_0'  % (readnum)]
             readnum+=1
             newids +=1
         else:
+            parsedid = int(orignames[read_id][0].split('_')[1])
+            orignames[read_id] += ['longread_%d_%d' % (parsedid,len(orignames[read_id]))]
             oldids+=1
+        newidout.write('%s\t%s\n'% (read_id,orignames[read_id][-1]))
 
-        if read_id == 'm150304_023026_42163R_c100791492550000001823175409091556_s1_p0/121939/32259_47908':
-            print orignames[read_id]
+        ## this alignment name is the LAST element in the originames[read_id] list.
+        thisname = orignames[read_id][-1]
 
         if outercoords:
             ## Need to account for OUTER coordinates here.  This means that the breakpoints may be anywhere within the outer coordinates
             ## of the discordant pair, rather than anywhere within the inner coordinates of the discordant pair.  Thus, the breakpoints
             ## may lie "within" the aligned region, which is allowed if the alignments may span the breakpoints (especially in the case
             ## of repetitive sequences and high-error PacBio reads).
-            if orignames[read_id] in gaps: # simply add querylen to gaps
-                ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query
-                gaps[orignames[read_id]]+=(int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query)
-            else: # add esp and gap 
-                esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
-                gaps[orignames[read_id]] = (int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query) 
-        else: 
-            ## NEed to account for inner coords here.  
-            if orignames[read_id] in gaps: # simply add querylen to gaps                                                                                                                  
-                ## gap for the outer coordinates is the length of the alignment minus the event (del) plus the gap in query                                                               
-                gaps[orignames[read_id]]+=int(event_size)-int(gap_in_query)
-            else: # add esp and gap                                                                                                                          
-                esps += [[orignames[read_id],chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']]
-                gaps[orignames[read_id]] = int(event_size)-int(gap_in_query)
-                
-    out.close()
-    print [e for e in esps if e[0] == 'longread_2257']
+            thisgap = (int(end_align)-int(start_align)+1)-int(event_size)+int(gap_in_query)
+        else:
+            thisgap = int(event_size)-int(gap_in_query)
+        thisesp = [thisname,chrom,start_align,del_start,'+',chrom,del_end,end_align,'-']
+        esps += [thisesp]
+        espout.write('\t'.join(thisesp)+'\n')
+
+        mapout.write('%s\t%s\t%d\n' % (''.join(thisesp),thisname,thisgap))
+        if outercoords:
+            ## lengths include the aligned portions.
+            lenout.write('%s\t%d\n'% (thisname,int(end_align)-int(start_align)+gaps[esp[0]]))
+        else:
+            ## lengths are simply the gaps.
+            lenout.write('%s\t%d\n' % (thisname,thisgap))
+
     print '%d esps after adding new bp calls' % (len(esps))
     print '%d new longread IDs created; %d ids seen previously' % (newids,oldids)
     print '%d alignments skipped because they were redundantly-sequenced fragments.'%  (extrasubreads)
     print 'New mapped names from HMM calls are located in %s' % (newidfile)
-    sys.exit()
-    ## write updated files
-    fullespfile = '%s-FormatAlignments/esps-with-hmmdels.full' % (prefix)
-    espout = open(fullespfile,'w')
-    espmapping = '%s-FormatAlignments/espmapping-with-hmmdels.txt' % (prefix)
-    mapout = open(espmapping,'w')
-    lengths = '%s-FormatAlignments/hmmdel-lengths.txt' % (prefix)
-    lenout = open(lengths,'w')
-    for esp in esps:
-        espout.write('\t'.join(esp)+'\n')
-        if esp[0] not in gaps:
-            sys.exit('ERROR: %s does not have a gap.'% (len(esp[0])))
-        mapout.write('%s\t%s\t%d\n' % (''.join(esp),esp[0],gaps[esp[0]]))
-        if outercoords:
-            ## lengths include the aligned portions.
-            lenout.write('%s\t%d\n'% (esp[0],int(esp[7])-int(esp[2])+gaps[esp[0]]))
-        else:
-            ## lengths are simply the gaps.
-            lenout.write('%s\t%d\n' % (esp[0],gaps[esp[0]]))
-
+  
+    newidout.close()
     espout.close()
     mapout.close()
     lenout.close()
