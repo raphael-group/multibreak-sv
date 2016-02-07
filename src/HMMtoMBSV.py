@@ -94,8 +94,6 @@ def main(args):
 	os.system('mkdir %s-FormatAlignments' % (prefix))
     if not os.path.isdir('%s-RunGASV/' % (prefix)):
 	os.system('mkdir %s-RunGASV' % (prefix))
-    if not os.path.isdir('%s-RunGASV/binned-esps/' % (prefix)):
-	os.system('mkdir %s-RunGASV/binned-esps/' % (prefix))
     if not os.path.isdir('%s-MBSVinputs/' % (prefix)):
 	os.system('mkdir %s-MBSVinputs' % (prefix))
     if not os.path.isdir('%s-MBSVinputs/cluster-subproblems/' % (prefix)):
@@ -134,7 +132,7 @@ def main(args):
     sortedfile = sortESPfile(espfile,gasvdir)
 
     ## split ESPs
-    gasvinfile = splitESPs(sortedfile,mapfile,'%s-RunGASV/binned-esps/' % (prefix),'%s-RunGASV/gasv.in' % (prefix),opts.binsize,opts.lminlmaxrange,opts.lminlmaxpercent)
+    gasvinfile = splitESPs(sortedfile,mapfile,'%s-RunGASV/gasv.in' % (prefix),opts.binsize,opts.lminlmaxrange,opts.lminlmaxpercent)
 
     adjustedalignmentfile = '%s-FormatAlignments/empty-adjustedalignments.txt' % (prefix)
     os.system('touch %s' % (adjustedalignmentfile))
@@ -356,7 +354,7 @@ def sortESPfile(espfile,gasvdir):
     print 'Sorted file is %s' % (sortedfile)
     return sortedfile
 
-def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize,lminlmaxrange,lminlmaxpercent):
+def splitESPs(espfile,mapfile,gasvinfile,binsize,lminlmaxrange,lminlmaxpercent):
     print '\nSPLITTING ESP FILE'
     ## read map file.
     name2gap = {}
@@ -381,19 +379,10 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize,lminlmaxrange,lminlma
             
         ## make lists of counts, filenames, and file handles for each bin.
         counts = [0 for b in bins]
-        outfilenames = ['%s/intrachrom-esps-bin-%d-%d' % (outprefix,b,b+binsize-1) for b in bins]
-        outs = [open(o,'w') for o in outfilenames]
 
-    # file for bulk GASV call.
+    # file for ESP Plus file.
     outgasv = open(gasvinfile,'w')    
     
-    transoutfile = '%s/translocations' % (outprefix)
-    transout = open(transoutfile,'w')
-    transcount = 0
-    ## lmin/lmax doesn't matter for translocations
-    ## write line to outgasv file so translocations are accounted for.
-    outgasv.write('%s\tPR\t0\t100\n' % (transoutfile))
-
     ## For each discordant pair, (1) put it in a bin if there are bins or (2) write a file for it and
     ## add it as a line to the outgasv file.
     with open(espfile) as fin:
@@ -405,24 +394,16 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize,lminlmaxrange,lminlma
             ## if translocation, write and quit.
             if gap == -1:
                 ## translocation
-                transout.write(line)
+                outgasv.write('%s\t%d\t%d\n' % (line.strip(),0,100)) ## Lmin/Lmax doesn't matter for translocations.
                 transcount+=1
                 continue
 
             if binsize == None:
-                # write new file that contains just this line.
-                # This could be written in a simpler way (split the list),
-                # but this is more clear in case bins are not None.
-                outfilename = '%s/intrachrom-%s' % (outprefix,name)
-                out = open(outfilename,'w')
-                out.write(line)
-                out.close()
-
-                ## Write single Lmin/Lmax value to outgasv file.
+                ## Write this line plus 0-LminLmaxBuffer to outgasv.
                 lminlmaxbuffer = min(lminlmaxrange,int(lminlmaxpercent*gap))
                 if gap-lminlmaxbuffer < 0:
                     sys.exit('ERROR: lminlmaxbuffer=%d but event size is %d' % (lminlmaxbuffer,gap))
-                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilename,0,lminlmaxbuffer))
+                outgasv.write('%s\t%d\t%d\n' % (line.strip(),0,lminlmaxbuffer))
 
             else:
                 ## There Are Bins.  find the one that this discordant pair belongs in.
@@ -433,28 +414,11 @@ def splitESPs(espfile,mapfile,outprefix,gasvinfile,binsize,lminlmaxrange,lminlma
                 else:
                     print name,gap,pos
                     sys.exit('ERROR: %d does not fit within gaps.' % (gap))
-                #print name,gap,pos
-                #print outfilenames[pos]
-                #sys.exit()
 
                 # write the line to the binned file.
-                outs[pos].write(line)
-                counts[pos]+=1
-
-    ## Close all files.
-    transout.close()
-    if binsize != None:
-        # if there is a list of file handles, close them.
-        for out in outs:
-            out.close()
-    print '%d lines written to translocations file %s'  % (transcount,transoutfile)
-
-    ## If there are bins, write the lines to the outgasv file.
-    if binsize != None:
-        for i in range(len(bins)):
-            if counts[i] > 0: # don't write if it's an empty file.
-                print '%d lines written to binned file %s'  % (counts[i],outfilenames[i])
-                outgasv.write('%s\tPR\t%d\t%d\n' % (outfilenames[i],max(bins[i]-binsize,0),bins[i]+2*binsize))
+                thislmin = max(bins[pos]-binsize,0)
+                thislmax = bins[pos]+2*binsize
+                outgasv.write('%s\t%d\t%d\n' % (line.strip(),thislmin,thislmax))
                 
     outgasv.close()
     print 'wrote to file %s' % (gasvinfile)
@@ -638,7 +602,7 @@ def runGASV(prefix,gasvinfile,gasvdir):
     outputdir = '%s-RunGASV/' % (prefix)
     print 'writing to output directory',outputdir
 
-    cmd = 'java -Xms2g -Xmx5g -jar %s/bin/GASV.jar --cluster --batch --maximal --output regions --nohead --minClusterSize 1 --outputdir %s --verbose %s'  % (gasvdir,outputdir,gasvinfile)
+    cmd = 'java -Xms2g -Xmx5g -jar %s/bin/GASV.jar --cluster --espplus --maximal --output regions --nohead --minClusterSize 1 --outputdir %s --verbose %s'  % (gasvdir,outputdir,gasvinfile)
     print cmd
     os.system(cmd)
     clustersfile = '%s.clusters' % (gasvinfile)
