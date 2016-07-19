@@ -86,6 +86,10 @@ def main(args):
     ## generate HMM deleted region and add them.
     espfile,mapfile,hmmdellenfile,esps = addHMMRegions(pacbiofile,fullespfile,mapfile,mappedname,prefix,libdir)
     #hmmdellenfile = ''
+
+    ## Check to see if there are any ESPs; if not the case, then die.
+    if len(esps)==0:
+        sys.exit('\n!!!!!!!!!!!\nThere are zero multi-breakpoint mappings; thus no SVs can be clustered. Exiting.\n!!!!!!!!!!!\n')
     
     ## take outer coords
     espfile = getOuterCoords(esps,prefix)
